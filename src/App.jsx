@@ -23,7 +23,6 @@ const formatHours = (hours) => {
 
 // Helper function to get fun break warning messages with variety
 const getBreakWarning = (breakHours) => {
-  // Array of varied messages for each break length category
   const shortBreakMessages = [
     "Nice quick break! Back to work like a ninja 🥷",
     "Efficient break! You're in and out faster than a cat burglar 🐱‍👤",
@@ -48,85 +47,37 @@ const getBreakWarning = (breakHours) => {
     "Did you just hibernate? Bears take shorter breaks than that 🐻"
   ];
   
-  // Randomly select a message based on break duration
   const randomIndex = Math.floor(Math.random() * 5);
   
   if (breakHours < 1) {
     return {
       text: shortBreakMessages[randomIndex],
       level: "info",
-      color: "#4ade80" // Green
+      color: "#a3a3a3"
     };
   } else if (breakHours < 2) {
     return {
       text: mediumBreakMessages[randomIndex],
       level: "warning",
-      color: "#fbbf24" // Amber
+      color: "#78716c"
     };
   } else {
     return {
       text: longBreakMessages[randomIndex],
       level: "danger",
-      color: "#f87171" // Red
+      color: "#57534e"
     };
   }
 };
-
-// Simple icon components
-const ClockIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"></circle>
-    <polyline points="12 6 12 12 16 14"></polyline>
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="8" x2="12" y2="16"></line>
-    <line x1="8" y1="12" x2="16" y2="12"></line>
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"></polyline>
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-    <line x1="10" y1="11" x2="10" y2="17"></line>
-    <line x1="14" y1="11" x2="14" y2="17"></line>
-  </svg>
-);
-
-const ChartIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="20" x2="12" y2="10"></line>
-    <line x1="18" y1="20" x2="18" y2="4"></line>
-    <line x1="6" y1="20" x2="6" y2="16"></line>
-  </svg>
-);
-
-const AlertIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-    <line x1="12" y1="9" x2="12" y2="13"></line>
-    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-  </svg>
-);
 
 function App() {
   const [timeInput, setTimeInput] = useState('');
   const [timeLogs, setTimeLogs] = useState([]);
   const [error, setError] = useState('');
   
-  // Parse and add multiple time logs
   const addTimeLogs = () => {
-    // Clear previous errors
     setError('');
-    
-    // Split input by whitespace
     const timeEntries = timeInput.trim().split(/\s+/);
-    
-    // Validate all entries have the correct format
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
     const invalidEntries = timeEntries.filter(entry => !timeRegex.test(entry));
     
@@ -135,24 +86,20 @@ function App() {
       return;
     }
     
-    // Add all valid entries to the time logs
     setTimeLogs([...timeLogs, ...timeEntries]);
     setTimeInput('');
   };
   
-  // Remove time log
   const removeTimeLog = (index) => {
     const newLogs = [...timeLogs];
     newLogs.splice(index, 1);
     setTimeLogs(newLogs);
   };
   
-  // Clear all logs
   const clearAllLogs = () => {
     setTimeLogs([]);
   };
   
-  // Calculate statistics
   const calculateStats = () => {
     if (timeLogs.length < 2) {
       return { 
@@ -164,7 +111,6 @@ function App() {
       };
     }
     
-    // Sort times
     const sortedLogs = [...timeLogs].sort((a, b) => {
       return parseTime(a) - parseTime(b);
     });
@@ -174,7 +120,6 @@ function App() {
     const segments = [];
     const breakWarnings = [];
     
-    // Calculate working and break segments
     for (let i = 0; i < sortedLogs.length - 1; i += 2) {
       const startTime = parseTime(sortedLogs[i]);
       const endTime = parseTime(sortedLogs[i + 1] || sortedLogs[i]);
@@ -189,7 +134,6 @@ function App() {
         type: 'work'
       });
       
-      // Calculate break time (if there's a next segment)
       if (i + 2 < sortedLogs.length) {
         const breakStartTime = endTime;
         const breakEndTime = parseTime(sortedLogs[i + 2]);
@@ -206,7 +150,6 @@ function App() {
         
         segments.push(breakSegment);
         
-        // Add warning if break is longer than 1 hour
         if (breakHours >= 1) {
           const warning = getBreakWarning(breakHours);
           breakWarnings.push({
@@ -217,19 +160,12 @@ function App() {
       }
     }
     
-    // Calculate total hours including breaks
     const totalWithBreaks = totalWorkHours + totalBreakHours;
-    
-    // Calculate total hours (first to last timestamp)
-    const firstTime = parseTime(sortedLogs[0]);
-    const lastTime = parseTime(sortedLogs[sortedLogs.length - 1]);
-    const totalHoursFromFirstToLast = getTimeDifference(firstTime, lastTime);
     
     return {
       totalHours: totalWorkHours,
       breakHours: totalBreakHours,
       totalWithBreaks: totalWithBreaks,
-      totalHoursFromFirstToLast: totalHoursFromFirstToLast,
       segments,
       breakWarnings
     };
@@ -237,7 +173,6 @@ function App() {
   
   const stats = calculateStats();
 
-  // Handle Enter key press
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
       addTimeLogs();
@@ -246,368 +181,624 @@ function App() {
   
   return (
     <div style={{
-      maxWidth: '900px',
-      margin: '0 auto',
-      padding: '32px 16px',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
+      minHeight: '100vh',
+      backgroundColor: '#f5f5f4',
+      padding: '40px 20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-        padding: '24px',
-        position: 'relative',
-        overflow: 'hidden'
+        maxWidth: '1100px',
+        margin: '0 auto'
       }}>
-        {/* Decorative element */}
+        {/* Header */}
         <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '160px',
-          height: '160px',
-          borderRadius: '0 0 0 100%',
-          background: 'linear-gradient(135deg, #f0f9ff 0%, #3b82f6 100%)',
-          opacity: 0.1,
-          zIndex: 0
-        }} />
-        
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ color: '#2563eb', marginRight: '8px' }}>
-              <ClockIcon />
-            </span>
-            <h1 style={{ 
-              fontSize: '24px', 
-              fontWeight: 'bold', 
-              color: '#2563eb',
-              margin: 0
-            }}>
-              Office Time Logger
-            </h1>
-          </div>
-          
-          <p style={{ 
-            color: '#4b5563', 
-            marginBottom: '32px',
-            marginTop: '8px'
+          textAlign: 'center',
+          marginBottom: '40px'
+        }}>
+          {/* <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '80px',
+            height: '80px',
+            borderRadius: '20px',
+            backgroundColor: '#57534e',
+            marginBottom: '20px'
           }}>
-            Enter your time logs to calculate total working hours and breaks.
+            {/* <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fafaf9" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg> */}
+          {/* </div>  */}
+          <h1 style={{
+            fontSize: '48px',
+            fontWeight: '800',
+            color: '#1c1917',
+            margin: '0 0 12px 0'
+          }}>
+            Time Logger
+          </h1>
+          <p style={{
+            fontSize: '18px',
+            color: '#57534e',
+            margin: 0
+          }}>
+            Track your work hours and breaks with style
           </p>
-          
+        </div>
+
+        {/* Input Section */}
+        <div style={{
+          backgroundColor: '#fafaf9',
+          borderRadius: '24px',
+          padding: '32px',
+          marginBottom: '24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e7e5e4'
+        }}>
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
             gap: '16px',
-            marginBottom: '32px'
+            marginBottom: '12px'
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <textarea
-                  style={{
-                    flexGrow: 1,
-                    padding: '12px 16px',
-                    border: `1px solid ${error ? '#ef4444' : '#d1d5db'}`,
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    minHeight: '80px',
-                    resize: 'vertical'
-                  }}
-                  placeholder="Paste multiple time logs (e.g., 12:00:26 18:42:40 19:39:58 21:09:52)"
-                  value={timeInput}
-                  onChange={(e) => setTimeInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button
-                    onClick={addTimeLogs}
-                    style={{
-                      backgroundColor: '#2563eb',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '12px 24px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      fontWeight: '600',
-                      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
-                    }}
-                  >
-                    Add Logs
-                  </button>
-                  
-                  <button
-                    onClick={clearAllLogs}
-                    style={{
-                      backgroundColor: '#f3f4f6',
-                      color: '#4b5563',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '8px',
-                      padding: '12px 24px',
-                      cursor: 'pointer',
-                      fontWeight: '600'
-                    }}
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-              {error && (
-                <p style={{ color: '#ef4444', margin: '4px 0 0 0', fontSize: '14px' }}>
-                  {error}
-                </p>
-              )}
-              <p style={{ color: '#6b7280', margin: '4px 0 0 0', fontSize: '14px' }}>
-                Tip: You can paste multiple time logs separated by spaces
-              </p>
+            <textarea
+              style={{
+                flex: 1,
+                padding: '16px 20px',
+                border: error ? '2px solid #78716c' : '2px solid #e7e5e4',
+                borderRadius: '16px',
+                fontSize: '16px',
+                minHeight: '100px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+                backgroundColor: '#ffffff'
+              }}
+              placeholder="Enter times in HH:MM:SS format (e.g., 09:00:00 17:30:00)"
+              value={timeInput}
+              onChange={(e) => setTimeInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              onFocus={(e) => {
+                if (!error) e.target.style.borderColor = '#57534e';
+              }}
+              onBlur={(e) => {
+                if (!error) e.target.style.borderColor = '#e7e5e4';
+              }}
+            />
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <button
+                onClick={addTimeLogs}
+                style={{
+                  backgroundColor: '#57534e',
+                  color: '#fafaf9',
+                  border: 'none',
+                  borderRadius: '16px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#44403c';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#57534e';
+                }}
+              >
+                Add Logs
+              </button>
+              <button
+                onClick={clearAllLogs}
+                style={{
+                  backgroundColor: '#e7e5e4',
+                  color: '#44403c',
+                  border: 'none',
+                  borderRadius: '16px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#d6d3d1'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#e7e5e4'}
+              >
+                Clear All
+              </button>
             </div>
           </div>
-          
-          {/* Break Warnings */}
-          {stats.breakWarnings.length > 0 && (
-            <div style={{
-              marginBottom: '24px'
+          {error && (
+            <p style={{
+              color: '#78716c',
+              margin: '8px 0 0 0',
+              fontSize: '14px',
+              fontWeight: '500'
             }}>
-              {stats.breakWarnings.map((warning, index) => (
-                <div 
-                  key={index}
-                  style={{
-                    backgroundColor: warning.color + '20', // Add transparency
-                    border: `1px solid ${warning.color}`,
-                    borderRadius: '8px',
-                    padding: '12px 16px',
-                    marginBottom: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                  }}
-                >
-                  <div style={{ 
-                    backgroundColor: warning.color, 
+              ⚠️ {error}
+            </p>
+          )}
+          <p style={{
+            color: '#a8a29e',
+            margin: '8px 0 0 0',
+            fontSize: '14px'
+          }}>
+            💡 Paste multiple timestamps separated by spaces
+          </p>
+        </div>
+
+        {/* Break Warnings */}
+        {stats.breakWarnings.length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            {stats.breakWarnings.map((warning, index) => (
+              <div 
+                key={index}
+                style={{
+                  backgroundColor: '#fafaf9',
+                  borderRadius: '20px',
+                  padding: '20px 24px',
+                  marginBottom: '16px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  borderLeft: `6px solid ${warning.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  border: '1px solid #e7e5e4'
+                }}
+              >
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  backgroundColor: warning.color,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px'
+                }}>
+                  {warning.level === 'info' ? '⚡' : warning.level === 'warning' ? '⏰' : '🚨'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    margin: '0 0 6px 0',
+                    fontWeight: '700',
+                    fontSize: '16px',
+                    color: '#1c1917'
+                  }}>
+                    Break: {warning.segment.start} → {warning.segment.end} ({formatHours(warning.segment.hours)})
+                  </p>
+                  <p style={{
+                    margin: 0,
+                    color: '#57534e',
+                    fontSize: '15px'
+                  }}>
+                    {warning.text}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Statistics Summary - Top Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '20px',
+          marginBottom: '24px'
+        }}>
+          {/* Working Hours Card */}
+          <div style={{
+            backgroundColor: '#44403c',
+            borderRadius: '20px',
+            padding: '28px',
+            color: '#fafaf9',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              fontSize: '40px',
+              marginBottom: '8px'
+            }}>
+              💼
+            </div>
+            <p style={{
+              color: '#d6d3d1',
+              margin: '0 0 8px 0',
+              fontSize: '14px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              Working Hours
+            </p>
+            <p style={{
+              fontSize: '42px',
+              fontWeight: '800',
+              margin: 0
+            }}>
+              {formatHours(stats.totalHours)}
+            </p>
+          </div>
+
+          {/* Break Time Card */}
+          <div style={{
+            backgroundColor: '#78716c',
+            borderRadius: '20px',
+            padding: '28px',
+            color: '#fafaf9',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              fontSize: '40px',
+              marginBottom: '8px'
+            }}>
+              ☕
+            </div>
+            <p style={{
+              color: '#e7e5e4',
+              margin: '0 0 8px 0',
+              fontSize: '14px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              Break Time
+            </p>
+            <p style={{
+              fontSize: '42px',
+              fontWeight: '800',
+              margin: 0
+            }}>
+              {formatHours(stats.breakHours)}
+            </p>
+          </div>
+
+          {/* Total Time Card */}
+          <div style={{
+            backgroundColor: '#a8a29e',
+            borderRadius: '20px',
+            padding: '28px',
+            color: '#fafaf9',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              fontSize: '40px',
+              marginBottom: '8px'
+            }}>
+              ⏱️
+            </div>
+            <p style={{
+              color: '#fafaf9',
+              margin: '0 0 8px 0',
+              fontSize: '14px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              Total Time
+            </p>
+            <p style={{
+              fontSize: '42px',
+              fontWeight: '800',
+              margin: 0
+            }}>
+              {formatHours(stats.totalWithBreaks)}
+            </p>
+          </div>
+        </div>
+
+        {/* Main Content - Bottom Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: stats.segments.filter(s => s.type === 'work').length > 0 ? '1fr 1fr' : '1fr',
+          gap: '24px'
+        }}>
+          {/* Time Logs Card */}
+          <div style={{
+            backgroundColor: '#fafaf9',
+            borderRadius: '24px',
+            padding: '32px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            border: '1px solid #e7e5e4'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #e7e5e4'
+            }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '14px',
+                backgroundColor: '#57534e',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: '16px'
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fafaf9" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div>
+                <h2 style={{
+                  fontSize: '22px',
+                  fontWeight: '700',
+                  margin: '0 0 4px 0',
+                  color: '#1c1917'
+                }}>
+                  Time Entries
+                </h2>
+                <p style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  color: '#78716c'
+                }}>
+                  {timeLogs.length} {timeLogs.length === 1 ? 'entry' : 'entries'} recorded
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              maxHeight: '420px',
+              overflowY: 'auto',
+              paddingRight: '8px'
+            }}>
+              {timeLogs.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '80px 20px',
+                  color: '#a8a29e'
+                }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
                     borderRadius: '50%',
-                    width: '32px',
-                    height: '32px',
+                    backgroundColor: '#e7e5e4',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white'
+                    margin: '0 auto 20px',
+                    fontSize: '36px'
                   }}>
-                    <AlertIcon />
+                    ⏱️
                   </div>
-                  <div>
-                    <p style={{ 
-                      margin: '0 0 4px 0', 
-                      fontWeight: '600',
-                      color: warning.color === '#4ade80' ? '#15803d' : 
-                             warning.color === '#fbbf24' ? '#92400e' : '#b91c1c'
-                    }}>
-                      Break from {warning.segment.start} to {warning.segment.end} ({formatHours(warning.segment.hours)})
-                    </p>
-                    <p style={{ margin: '0', color: '#4b5563' }}>
-                      {warning.text}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '24px'
-          }}>
-            {/* Time Logs Card */}
-            <div style={{
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
-              padding: '16px'
-            }}>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '16px'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ marginRight: '8px', color: '#374151' }}>
-                    <ClockIcon />
-                  </span>
-                  <h2 style={{
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    margin: 0
-                  }}>
-                    Time Logs ({timeLogs.length})
-                  </h2>
-                </div>
-                
-                {timeLogs.length > 1 && (
-                  <button
-                    onClick={() => setTimeLogs([])}
-                    style={{
-                      background: 'none',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      padding: '4px 8px',
-                      fontSize: '12px',
-                      color: '#4b5563',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <TrashIcon /> Delete All
-                  </button>
-                )}
-              </div>
-              
-              <div style={{
-                maxHeight: '256px',
-                overflowY: 'auto'
-              }}>
-                {timeLogs.length === 0 ? (
                   <p style={{
-                    color: '#6b7280',
-                    textAlign: 'center',
-                    padding: '16px'
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#78716c'
                   }}>
-                    No time logs added yet
+                    No time logs yet
                   </p>
-                ) : (
-                  <ul style={{
-                    listStyle: 'none',
-                    padding: 0,
-                    margin: 0
+                  <p style={{
+                    margin: '8px 0 0 0',
+                    fontSize: '14px',
+                    color: '#a8a29e'
                   }}>
-                    {timeLogs.map((log, index) => (
-                      <li
-                        key={index}
+                    Add your first entry to start tracking
+                  </p>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gap: '10px'
+                }}>
+                  {timeLogs.map((log, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '16px 20px',
+                        borderRadius: '14px',
+                        backgroundColor: '#ffffff',
+                        border: '2px solid #e7e5e4',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f5f5f4';
+                        e.currentTarget.style.borderColor = '#a8a29e';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#ffffff';
+                        e.currentTarget.style.borderColor = '#e7e5e4';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}>
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: '#57534e'
+                        }} />
+                        <span style={{
+                          fontWeight: '700',
+                          fontSize: '18px',
+                          color: '#1c1917',
+                          fontFamily: 'monospace',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {log}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => removeTimeLog(index)}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          margin: '4px 0',
-                          borderRadius: '6px',
-                          backgroundColor: index % 2 === 0 ? '#f9fafb' : 'transparent'
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#d6d3d1',
+                          fontSize: '22px',
+                          padding: '4px 8px',
+                          transition: 'all 0.2s',
+                          borderRadius: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.color = '#78716c';
+                          e.target.style.backgroundColor = '#e7e5e4';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.color = '#d6d3d1';
+                          e.target.style.backgroundColor = 'transparent';
                         }}
                       >
-                        <span>{log}</span>
-                        <button
-                          onClick={() => removeTimeLog(index)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#6b7280',
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <TrashIcon />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            {/* Statistics Card */}
+          </div>
+
+          {/* Work Sessions Card */}
+          {stats.segments.filter(s => s.type === 'work').length > 0 && (
             <div style={{
-              background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-              color: 'white',
-              borderRadius: '12px',
-              padding: '16px'
+              backgroundColor: '#fafaf9',
+              borderRadius: '24px',
+              padding: '32px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #e7e5e4'
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                marginBottom: '16px'
+                marginBottom: '24px',
+                paddingBottom: '16px',
+                borderBottom: '2px solid #e7e5e4'
               }}>
-                <span style={{ marginRight: '8px' }}>
-                  <ChartIcon />
-                </span>
-                <h2 style={{
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  margin: 0
-                }}>
-                  Statistics
-                </h2>
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0'
-                }}>
-                  Total Working Hours
-                </p>
-                <p style={{
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  margin: '4px 0 16px 0'
-                }}>
-                  {formatHours(stats.totalHours)}
-                </p>
-                
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0'
-                }}>
-                  Total Break Hours
-                </p>
-                <p style={{
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  margin: '4px 0 16px 0'
-                }}>
-                  {formatHours(stats.breakHours)}
-                </p>
-                
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0'
-                }}>
-                  Total Hours (Work + Breaks)
-                </p>
-                <p style={{
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  margin: '4px 0 16px 0'
-                }}>
-                  {formatHours(stats.totalWithBreaks)}
-                </p>
-                
                 <div style={{
-                  height: '1px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  margin: '16px 0'
-                }}></div>
-                
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  margin: '0'
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '14px',
+                  backgroundColor: '#78716c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '16px'
                 }}>
-                  Work Sessions
-                </p>
+                  <span style={{ fontSize: '28px' }}>📊</span>
+                </div>
+                <div>
+                  <h2 style={{
+                    fontSize: '22px',
+                    fontWeight: '700',
+                    margin: '0 0 4px 0',
+                    color: '#1c1917'
+                  }}>
+                    Work Sessions
+                  </h2>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: '#78716c'
+                  }}>
+                    {stats.segments.filter(s => s.type === 'work').length} {stats.segments.filter(s => s.type === 'work').length === 1 ? 'session' : 'sessions'} completed
+                  </p>
+                </div>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gap: '14px',
+                maxHeight: '420px',
+                overflowY: 'auto',
+                paddingRight: '8px'
+              }}>
                 {stats.segments.filter(s => s.type === 'work').map((segment, index) => (
-                  <div key={index} style={{ marginTop: '8px' }}>
-                    <p style={{ margin: '0', fontSize: '14px' }}>
-                      {segment.start} - {segment.end} ({formatHours(segment.hours)})
-                    </p>
+                  <div
+                    key={index}
+                    style={{
+                      padding: '20px 24px',
+                      borderRadius: '14px',
+                      backgroundColor: '#ffffff',
+                      border: '2px solid #e7e5e4',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                      e.currentTarget.style.borderColor = '#a8a29e';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.borderColor = '#e7e5e4';
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '12px'
+                    }}>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: '#78716c',
+                        color: '#fafaf9',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700'
+                      }}>
+                        Session {index + 1}
+                      </div>
+                      <div style={{
+                        fontSize: '24px',
+                        fontWeight: '800',
+                        color: '#44403c'
+                      }}>
+                        {formatHours(segment.hours)}
+                      </div>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: '#57534e',
+                      fontFamily: 'monospace',
+                      fontSize: '16px',
+                      fontWeight: '600'
+                    }}>
+                      <span style={{
+                        padding: '8px 14px',
+                        backgroundColor: '#f5f5f4',
+                        borderRadius: '8px',
+                        border: '1px solid #e7e5e4'
+                      }}>
+                        {segment.start}
+                      </span>
+                      <span style={{ fontSize: '20px', color: '#a8a29e' }}>→</span>
+                      <span style={{
+                        padding: '8px 14px',
+                        backgroundColor: '#f5f5f4',
+                        borderRadius: '8px',
+                        border: '1px solid #e7e5e4'
+                      }}>
+                        {segment.end}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
