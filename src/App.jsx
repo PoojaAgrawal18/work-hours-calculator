@@ -223,7 +223,7 @@ function App() {
             color: '#57534e',
             margin: 0
           }}>
-            Track your work hours and breaks with style
+            Track your work hours and breaks with style. This free work hours calculator helps employees track office time and break hours easily.
           </p>
         </div>
 
