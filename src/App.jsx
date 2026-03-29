@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Footer from "./components/Footer.jsx";
 
@@ -16,68 +16,158 @@ const getTimeDifference = (startTime, endTime) => {
   return diffMs / (1000 * 60 * 60); // Convert ms to hours
 };
 
+// Preserve entry order and support next-day rollover (e.g. 23:00:00 -> 01:00:00)
+const buildChronologicalTimes = (logs) => {
+  const timeline = [];
+  let dayOffset = 0;
+  let previousBaseTime = null;
+
+  logs.forEach((log) => {
+    const baseTime = parseTime(log);
+
+    if (previousBaseTime && baseTime < previousBaseTime) {
+      dayOffset += 1;
+    }
+
+    const current = new Date(baseTime);
+    current.setDate(current.getDate() + dayOffset);
+    timeline.push(current);
+    previousBaseTime = baseTime;
+  });
+
+  return timeline;
+};
+
 // Helper function to format hours as "Xh Ym"
 const formatHours = (hours) => {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
+  const totalMinutes = Math.floor(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
   return `${h}h ${m}m`;
 };
 
-// Helper function to get fun break warning messages with variety
-const getBreakWarning = (breakHours) => {
-  const shortBreakMessages = [
-    "Nice quick break! Back to work like a ninja 🥷",
-    "Efficient break! You're in and out faster than a cat burglar 🐱‍👤",
-    "Speed break champion! Did you even have time to blink? 👁️",
-    "Lightning fast refreshment! Your keyboard barely had time to miss you ⚡",
-    "Quick recharge complete! Your productivity battery is at 100% 🔋",
-  ];
+const formatHoursWithSeconds = (hours) => {
+  const totalSeconds = Math.floor(hours * 60 * 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h}h ${m}m ${s}s`;
+};
 
-  const mediumBreakMessages = [
+const shortBreakMessages = [
+    "That was quick! You're back before your chair noticed 😄",
+    "Blink-and-you're-back break! Productivity level: pro 🚀",
+    "Quick pit stop complete! You're on fire 🔥",
+    "That break was smoother than a coffee sip ☕✨",
+    "Back already? That’s some serious focus energy 💪",
+    "Speed mode activated! You didn’t even miss a beat ⚡",
+    "In and out like a pro! Let’s keep the momentum going 🏃‍♀️",
+    "That was a ninja-level break 🥷 — fast and efficient!",
+    "Quick refresh done! Your productivity just got a boost 📈",
+    "That break was so fast, even time is impressed ⏱️😄",
+    "Energy restored in record time! Let’s gooo 🚀",
+    "You took a break… or just teleported back? 😆",
+    "Fast break, strong comeback 💥",
+    "That was a micro-break with macro energy ⚡",
+    "Back in action already? Love the dedication 🙌",
+  ];
+const mediumBreakMessages = [
     "Hmm, that's a looong coffee break. Did you fall into the coffee machine? ☕",
     "Is that a break or a mini-vacation? Your desk is filing abandonment issues 🗄️",
     "Your chair called and asked if you two broke up 💔",
-    "That's not a coffee break, that's a coffee relationship 💍☕",
+    "That coffee break became a proper coffee date 💍☕",
     "Your mouse started getting separation anxiety during that break 🐭",
+    "That break had a beginning, middle, and a full storyline 📖",
+    "That break was enough for a quick episode and a stretch 🍿",
+    "Did you take a break or start a new life chapter? 📘",
+    "Your coffee probably got cold waiting for you ☕❄️",
+    "That was less of a break and more of a lifestyle choice 😄",
+    "Your desk missed you… it even started collecting dust 🧹",
+    "That break was enough to lose your tab for a minute 🤔",
+    "Your keyboard almost filed a missing person report ⌨️",
+    "That was a full recharge… and maybe a little extra 🔋",
+    "Your screen saver got more attention than your work 💻",
   ];
 
-  const longBreakMessages = [
+const longBreakMessages = [
     "WHOA! That's not a break, that's a vacation! Did you go to Hawaii? 🏝️",
     "Welcome back from your expedition! Did you discover any new species? 🧪",
     "Break so long your computer had to check if you still work here 🖥️",
     "Your break was so long, your desk plants evolved 🌱➡️🌴",
     "Did you just hibernate? Bears take shorter breaks than that 🐻",
+    "That wasn’t a break… that was a full recharge cycle 🔋",
+    "You disappeared so long, even your coffee gave up waiting ☕",
+    "Your break had seasons… winter, summer, everything ❄️☀️",
+    "That was less of a break and more of a world tour 🌍",
+    "Your desk almost started renting out your chair 🪑",
+    "Even your screen saver got bored waiting for you 💻",
+    "That break deserves its own calendar entry 📅",
+    "You took a break long enough to forget your password 🔐",
+    "Your break was so long, your tasks started missing you 📝",
+    "That wasn't a break… that was a full storyline with a plot twist 🎬",
+    "Your chair is now emotionally attached and confused 😄",
+    "You went on break and came back with life experience ✨",
   ];
 
-  const randomIndex = Math.floor(Math.random() * 5);
+// Helper function to avoid repetitive warning messages
+const getBreakWarning = (breakHours, segmentKey, warningCacheRef, warningHistoryRef) => {
+  let messages = shortBreakMessages;
+  let level = "info";
+  let color = "#a3a3a3";
 
-  if (breakHours < 1) {
-    return {
-      text: shortBreakMessages[randomIndex],
-      level: "info",
-      color: "#a3a3a3",
-    };
-  } else if (breakHours < 2) {
-    return {
-      text: mediumBreakMessages[randomIndex],
-      level: "warning",
-      color: "#78716c",
-    };
-  } else {
-    return {
-      text: longBreakMessages[randomIndex],
-      level: "danger",
-      color: "#57534e",
-    };
+  const breakMinutes = Math.floor(breakHours * 60);
+
+  if (breakMinutes > 90) {
+    messages = longBreakMessages;
+    level = "danger";
+    color = "#57534e";
+  } else if (breakMinutes >= 60) {
+    messages = mediumBreakMessages;
+    level = "warning";
+    color = "#78716c";
   }
+
+  const cachedWarning = warningCacheRef.current.get(segmentKey);
+  if (cachedWarning && cachedWarning.level === level) {
+    return cachedWarning;
+  }
+
+  const recentIndexes = warningHistoryRef.current[level] || [];
+  let candidateIndexes = messages
+    .map((_, index) => index)
+    .filter((index) => !recentIndexes.includes(index));
+
+  if (candidateIndexes.length === 0) {
+    candidateIndexes = messages.map((_, index) => index);
+  }
+
+  const randomPosition = Math.floor(Math.random() * candidateIndexes.length);
+  const chosenIndex = candidateIndexes[randomPosition];
+  const warning = {
+    text: messages[chosenIndex],
+    level,
+    color,
+  };
+
+  warningHistoryRef.current[level] = [
+    ...recentIndexes.slice(-2),
+    chosenIndex,
+  ];
+  warningCacheRef.current.set(segmentKey, warning);
+  return warning;
 };
 
 function App() {
   const [timeInput, setTimeInput] = useState("");
   const [timeLogs, setTimeLogs] = useState([]);
   const [error, setError] = useState("");
+  const [isLogInputLocked, setIsLogInputLocked] = useState(false);
+  const inputRef = useRef(null);
+  const warningCacheRef = useRef(new Map());
+  const warningHistoryRef = useRef({ info: [], warning: [], danger: [] });
 
   const addTimeLogs = () => {
+    if (isLogInputLocked) return;
     setError("");
     const timeEntries = timeInput.trim().split(/\s+/);
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
@@ -93,7 +183,7 @@ function App() {
     }
 
     setTimeLogs([...timeLogs, ...timeEntries]);
-    setTimeInput("");
+    setIsLogInputLocked(true);
   };
 
   const removeTimeLog = (index) => {
@@ -104,6 +194,17 @@ function App() {
 
   const clearAllLogs = () => {
     setTimeLogs([]);
+    setTimeInput("");
+    setError("");
+    setIsLogInputLocked(false);
+    warningCacheRef.current.clear();
+    warningHistoryRef.current = { info: [], warning: [], danger: [] };
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(0, 0);
+      }
+    });
   };
 
   const calculateStats = () => {
@@ -117,53 +218,59 @@ function App() {
       };
     }
 
-    const sortedLogs = [...timeLogs].sort((a, b) => {
-      return parseTime(a) - parseTime(b);
-    });
+    const chronologicalTimes = buildChronologicalTimes(timeLogs);
 
     let totalWorkHours = 0;
     let totalBreakHours = 0;
     const segments = [];
     const breakWarnings = [];
 
-    for (let i = 0; i < sortedLogs.length - 1; i += 2) {
-      const startTime = parseTime(sortedLogs[i]);
-      const endTime = parseTime(sortedLogs[i + 1] || sortedLogs[i]);
+    for (let i = 0; i < timeLogs.length - 1; i += 2) {
+      const startTime = chronologicalTimes[i];
+      const endTime = chronologicalTimes[i + 1] || chronologicalTimes[i];
 
       const workHours = getTimeDifference(startTime, endTime);
       totalWorkHours += workHours;
 
       segments.push({
-        start: sortedLogs[i],
-        end: sortedLogs[i + 1] || sortedLogs[i],
+        start: timeLogs[i],
+        end: timeLogs[i + 1] || timeLogs[i],
         hours: workHours,
         type: "work",
       });
 
-      if (i + 2 < sortedLogs.length) {
+      if (i + 2 < timeLogs.length) {
         const breakStartTime = endTime;
-        const breakEndTime = parseTime(sortedLogs[i + 2]);
+        const breakEndTime = chronologicalTimes[i + 2];
 
         const breakHours = getTimeDifference(breakStartTime, breakEndTime);
         totalBreakHours += breakHours;
 
         const breakSegment = {
-          start: sortedLogs[i + 1],
-          end: sortedLogs[i + 2],
+          start: timeLogs[i + 1],
+          end: timeLogs[i + 2],
           hours: breakHours,
           type: "break",
         };
 
         segments.push(breakSegment);
 
-        if (breakHours >= 1) {
-          const warning = getBreakWarning(breakHours);
-          breakWarnings.push({
-            ...warning,
-            segment: breakSegment,
-          });
-        }
       }
+    }
+
+    if (totalBreakHours >= 1) {
+      const warning = getBreakWarning(
+        totalBreakHours,
+        "total-break",
+        warningCacheRef,
+        warningHistoryRef,
+      );
+      breakWarnings.push({
+        ...warning,
+        totalBreakHours,
+      });
+    } else {
+      warningCacheRef.current.delete("total-break");
     }
 
     const totalWithBreaks = totalWorkHours + totalBreakHours;
@@ -180,7 +287,7 @@ function App() {
   const stats = calculateStats();
 
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !isLogInputLocked) {
       addTimeLogs();
     }
   };
@@ -201,6 +308,22 @@ function App() {
           margin: "0 auto",
         }}
       >
+        <style>
+          {`
+            @keyframes warningPulse {
+              0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+              50% { box-shadow: 0 0 0 6px rgba(120, 113, 108, 0.20); }
+            }
+            @keyframes iconBounce {
+              0%, 100% { transform: translateY(0); }
+              50% { transform: translateY(-4px); }
+            }
+            @keyframes textGlow {
+              0%, 100% { color: #57534e; }
+              50% { color: #292524; }
+            }
+          `}
+        </style>
         {/* Header */}
         <div
           style={{
@@ -299,6 +422,8 @@ function App() {
             }}
           >
             <textarea
+              ref={inputRef}
+              disabled={isLogInputLocked}
               style={{
                 flex: 1,
                 padding: "16px 20px",
@@ -310,7 +435,9 @@ function App() {
                 fontFamily: "inherit",
                 transition: "border-color 0.2s",
                 outline: "none",
-                backgroundColor: "#ffffff",
+                backgroundColor: isLogInputLocked ? "#f5f5f4" : "#ffffff",
+                color: isLogInputLocked ? "#78716c" : "#1c1917",
+                cursor: isLogInputLocked ? "not-allowed" : "text",
               }}
               placeholder="Enter times in HH:MM:SS format (e.g., 09:00:00 17:30:00)"
               value={timeInput}
@@ -332,22 +459,27 @@ function App() {
             >
               <button
                 onClick={addTimeLogs}
+                disabled={isLogInputLocked}
                 style={{
-                  backgroundColor: "#57534e",
+                  backgroundColor: isLogInputLocked ? "#a8a29e" : "#57534e",
                   color: "#fafaf9",
                   border: "none",
                   borderRadius: "16px",
                   padding: "16px 32px",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isLogInputLocked ? "not-allowed" : "pointer",
                   transition: "all 0.2s",
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#44403c";
+                  if (!isLogInputLocked) {
+                    e.target.style.backgroundColor = "#44403c";
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "#57534e";
+                  e.target.style.backgroundColor = isLogInputLocked
+                    ? "#a8a29e"
+                    : "#57534e";
                 }}
               >
                 Add Logs
@@ -416,6 +548,7 @@ function App() {
                   alignItems: "center",
                   gap: "16px",
                   border: "1px solid #e7e5e4",
+                  animation: "warningPulse 1.8s ease-in-out infinite",
                 }}
               >
                 <div
@@ -428,6 +561,7 @@ function App() {
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: "24px",
+                    animation: "iconBounce 1s ease-in-out infinite",
                   }}
                 >
                   {warning.level === "info"
@@ -445,14 +579,16 @@ function App() {
                       color: "#1c1917",
                     }}
                   >
-                    Break: {warning.segment.start} → {warning.segment.end} (
-                    {formatHours(warning.segment.hours)})
+                    Total Break Time:{" "}
+                    {formatHoursWithSeconds(warning.totalBreakHours || 0)}
                   </p>
                   <p
                     style={{
                       margin: 0,
                       color: "#57534e",
                       fontSize: "15px",
+                      fontWeight: "600",
+                      animation: "textGlow 1.6s ease-in-out infinite",
                     }}
                   >
                     {warning.text}
