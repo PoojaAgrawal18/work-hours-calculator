@@ -25,7 +25,7 @@ function Contact() {
           <h1 style={{ marginTop: 0, color: "#1c1917" }}>Contact</h1>
           <p style={{ color: "#57534e", lineHeight: "1.7" }}>
             For support or feedback, please contact the team at
-            support@timelogger.app.
+            timeloggersupport@gmail.com.
           </p>
           <Link
             to="/"
