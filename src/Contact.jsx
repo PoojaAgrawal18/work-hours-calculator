@@ -24,8 +24,20 @@ function Contact() {
         >
           <h1 style={{ marginTop: 0, color: "#1c1917" }}>Contact</h1>
           <p style={{ color: "#57534e", lineHeight: "1.7" }}>
-            For support or feedback, please contact the team at
-            timeloggersupport@gmail.com.
+            For support or feedback, please contact the team at{" "}
+            <a
+              href="https://mail.google.com/mail/?view=cm&to=timeloggersupport@gmail.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#57534e",
+                fontWeight: "600",
+                textDecoration: "underline",
+                cursor: "pointer",
+              }}
+            >
+              timeloggersupport@gmail.com
+            </a>
           </p>
           <Link
             to="/"
