@@ -61,8 +61,9 @@ function Footer() {
           fontSize: "13px",
         }}
       >
-© 2026 Time Logger. All rights reserved. <br />
-Built with ❤️ for productivity tracking      </p>
+        © 2026 Time Logger. All rights reserved. Built with ❤️ for productivity
+        tracking
+      </p>
     </div>
   );
 }

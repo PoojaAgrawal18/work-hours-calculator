@@ -55,62 +55,67 @@ const formatHoursWithSeconds = (hours) => {
 };
 
 const shortBreakMessages = [
-    "That was quick! You're back before your chair noticed 😄",
-    "Blink-and-you're-back break! Productivity level: pro 🚀",
-    "Quick pit stop complete! You're on fire 🔥",
-    "That break was smoother than a coffee sip ☕✨",
-    "Back already? That’s some serious focus energy 💪",
-    "Speed mode activated! You didn’t even miss a beat ⚡",
-    "In and out like a pro! Let’s keep the momentum going 🏃‍♀️",
-    "That was a ninja-level break 🥷 — fast and efficient!",
-    "Quick refresh done! Your productivity just got a boost 📈",
-    "That break was so fast, even time is impressed ⏱️😄",
-    "Energy restored in record time! Let’s gooo 🚀",
-    "You took a break… or just teleported back? 😆",
-    "Fast break, strong comeback 💥",
-    "That was a micro-break with macro energy ⚡",
-    "Back in action already? Love the dedication 🙌",
-  ];
+  "That was quick! You're back before your chair noticed 😄",
+  "Blink-and-you're-back break! Productivity level: pro 🚀",
+  "Quick pit stop complete! You're on fire 🔥",
+  "That break was smoother than a coffee sip ☕✨",
+  "Back already? That’s some serious focus energy 💪",
+  "Speed mode activated! You didn’t even miss a beat ⚡",
+  "In and out like a pro! Let’s keep the momentum going 🏃‍♀️",
+  "That was a ninja-level break 🥷 — fast and efficient!",
+  "Quick refresh done! Your productivity just got a boost 📈",
+  "That break was so fast, even time is impressed ⏱️😄",
+  "Energy restored in record time! Let’s gooo 🚀",
+  "You took a break… or just teleported back? 😆",
+  "Fast break, strong comeback 💥",
+  "That was a micro-break with macro energy ⚡",
+  "Back in action already? Love the dedication 🙌",
+];
 const mediumBreakMessages = [
-    "Hmm, that's a looong coffee break. Did you fall into the coffee machine? ☕",
-    "Is that a break or a mini-vacation? Your desk is filing abandonment issues 🗄️",
-    "Your chair called and asked if you two broke up 💔",
-    "That coffee break became a proper coffee date 💍☕",
-    "Your mouse started getting separation anxiety during that break 🐭",
-    "That break had a beginning, middle, and a full storyline 📖",
-    "That break was enough for a quick episode and a stretch 🍿",
-    "Did you take a break or start a new life chapter? 📘",
-    "Your coffee probably got cold waiting for you ☕❄️",
-    "That was less of a break and more of a lifestyle choice 😄",
-    "Your desk missed you… it even started collecting dust 🧹",
-    "That break was enough to lose your tab for a minute 🤔",
-    "Your keyboard almost filed a missing person report ⌨️",
-    "That was a full recharge… and maybe a little extra 🔋",
-    "Your screen saver got more attention than your work 💻",
-  ];
+  "Hmm, that's a looong coffee break. Did you fall into the coffee machine? ☕",
+  "Is that a break or a mini-vacation? Your desk is filing abandonment issues 🗄️",
+  "Your chair called and asked if you two broke up 💔",
+  "That coffee break became a proper coffee date 💍☕",
+  "Your mouse started getting separation anxiety during that break 🐭",
+  "That break had a beginning, middle, and a full storyline 📖",
+  "That break was enough for a quick episode and a stretch 🍿",
+  "Did you take a break or start a new life chapter? 📘",
+  "Your coffee probably got cold waiting for you ☕❄️",
+  "That was less of a break and more of a lifestyle choice 😄",
+  "Your desk missed you… it even started collecting dust 🧹",
+  "That break was enough to lose your tab for a minute 🤔",
+  "Your keyboard almost filed a missing person report ⌨️",
+  "That was a full recharge… and maybe a little extra 🔋",
+  "Your screen saver got more attention than your work 💻",
+];
 
 const longBreakMessages = [
-    "WHOA! That's not a break, that's a vacation! Did you go to Hawaii? 🏝️",
-    "Welcome back from your expedition! Did you discover any new species? 🧪",
-    "Break so long your computer had to check if you still work here 🖥️",
-    "Your break was so long, your desk plants evolved 🌱➡️🌴",
-    "Did you just hibernate? Bears take shorter breaks than that 🐻",
-    "That wasn’t a break… that was a full recharge cycle 🔋",
-    "You disappeared so long, even your coffee gave up waiting ☕",
-    "Your break had seasons… winter, summer, everything ❄️☀️",
-    "That was less of a break and more of a world tour 🌍",
-    "Your desk almost started renting out your chair 🪑",
-    "Even your screen saver got bored waiting for you 💻",
-    "That break deserves its own calendar entry 📅",
-    "You took a break long enough to forget your password 🔐",
-    "Your break was so long, your tasks started missing you 📝",
-    "That wasn't a break… that was a full storyline with a plot twist 🎬",
-    "Your chair is now emotionally attached and confused 😄",
-    "You went on break and came back with life experience ✨",
-  ];
+  "WHOA! That's not a break, that's a vacation! Did you go to Hawaii? 🏝️",
+  "Welcome back from your expedition! Did you discover any new species? 🧪",
+  "Break so long your computer had to check if you still work here 🖥️",
+  "Your break was so long, your desk plants evolved 🌱➡️🌴",
+  "Did you just hibernate? Bears take shorter breaks than that 🐻",
+  "That wasn’t a break… that was a full recharge cycle 🔋",
+  "You disappeared so long, even your coffee gave up waiting ☕",
+  "Your break had seasons… winter, summer, everything ❄️☀️",
+  "That was less of a break and more of a world tour 🌍",
+  "Your desk almost started renting out your chair 🪑",
+  "Even your screen saver got bored waiting for you 💻",
+  "That break deserves its own calendar entry 📅",
+  "You took a break long enough to forget your password 🔐",
+  "Your break was so long, your tasks started missing you 📝",
+  "That wasn't a break… that was a full storyline with a plot twist 🎬",
+  "Your chair is now emotionally attached and confused 😄",
+  "You went on break and came back with life experience ✨",
+];
 
 // Helper function to avoid repetitive warning messages
-const getBreakWarning = (breakHours, segmentKey, warningCacheRef, warningHistoryRef) => {
+const getBreakWarning = (
+  breakHours,
+  segmentKey,
+  warningCacheRef,
+  warningHistoryRef,
+) => {
   let messages = shortBreakMessages;
   let level = "info";
   let color = "#a3a3a3";
@@ -149,10 +154,7 @@ const getBreakWarning = (breakHours, segmentKey, warningCacheRef, warningHistory
     color,
   };
 
-  warningHistoryRef.current[level] = [
-    ...recentIndexes.slice(-2),
-    chosenIndex,
-  ];
+  warningHistoryRef.current[level] = [...recentIndexes.slice(-2), chosenIndex];
   warningCacheRef.current.set(segmentKey, warning);
   return warning;
 };
@@ -254,7 +256,6 @@ function App() {
         };
 
         segments.push(breakSegment);
-
       }
     }
 
@@ -342,7 +343,7 @@ function App() {
             Time Logger
           </h1>
 
-          <p
+          {/* <p
             style={{
               fontSize: "18px",
               color: "#57534e",
@@ -362,8 +363,8 @@ function App() {
             <br />
             It is useful for employees to improve time management, ensure
             accuracy, and maintain better work-life balance.
-          </p>
-          <div style={{ marginTop: "20px" }}>
+          </p> */}
+          {/* <div style={{ marginTop: "20px" }}>
             <Link
               to="/work-hours-guide"
               style={{
@@ -379,7 +380,7 @@ function App() {
             >
               Read Complete Work Hours Guide
             </Link>
-          </div>
+          </div> */}
           <p style={{ color: "#a8a29e", fontSize: "14px", marginTop: "10px" }}>
             Used by professionals to track accurate work hours and productivity
           </p>
@@ -1116,7 +1117,7 @@ function App() {
         </div>
 
         {/* IMPROVED FEATURES + USE CASES */}
-        <div
+        {/* <div
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
@@ -1125,9 +1126,9 @@ function App() {
             padding: "2px",
             paddingTop: "30px",
           }}
-        >
+        > */}
           {/* Features Card */}
-          <div
+          {/* <div
             style={{
               backgroundColor: "#fafaf9",
               borderRadius: "24px",
@@ -1212,10 +1213,10 @@ function App() {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Use Cases Card */}
-          <div
+          {/* <div
             style={{
               backgroundColor: "#fafaf9",
               borderRadius: "24px",
@@ -1309,10 +1310,10 @@ function App() {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* IMPROVED WHY TRACKING IS IMPORTANT */}
-        <div
+        {/* <div
           style={{
             backgroundColor: "#fafaf9",
             borderRadius: "24px",
@@ -1462,10 +1463,10 @@ function App() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* IMPROVED FAQ */}
-        <div
+        {/* <div
           style={{
             backgroundColor: "#fafaf9",
             borderRadius: "24px",
@@ -1570,7 +1571,7 @@ function App() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
         <Footer />
       </div>
     </div>
