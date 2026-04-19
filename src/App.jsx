@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Footer from "./components/Footer";
 
 // Helper function to parse time string to Date object
@@ -160,19 +160,89 @@ const getExpectedCheckoutExplanation = (adv) => {
   if (adv.isEarly && adv.excessBreakHours <= 0) {
     return `You can leave at ${nominal} (9 hours after office start). You arrived ${formatHours(adv.earlyCreditHours)} early. That only changes your leave time if breaks go over 1 hour—then each early minute trims how much longer you would stay. Your breaks are under 1 hour, so your leave time stays ${nominal}.`;
   }
-  return `You can leave at ${nominal} (9 hours after start: 8 hours work plus 1 hour break). You started on time and breaks are within 1 hour. Being early only helps when breaks run long. If you start late, you would usually stay later by about the same amount.`;
+  const inferNote = adv.scheduledIsInferred
+    ? " Nominal start is rounded from your first log (before :30 → that hour, from :30 → next hour)."
+    : "";
+  return `You can leave at ${nominal} (9 hours after nominal start: 8 hours work plus 1 hour break). You matched nominal start and breaks are within 1 hour.${inferNote}`;
 };
 
-/** Checkout = first log + 8h work + 1h break (9h); break beyond 1h extends it. */
+/** Shift wall clock = nominal start + 8h work + 1h break (9h); see infer + checkout helpers. */
 const POLICY_WORK_PLUS_BREAK_HOURS = 9;
 const POLICY_ALLOWED_BREAK_HOURS = 1;
 
-const policyCheckoutFromFirstLog = (firstInstant, totalBreakHours) => {
-  const excessBreak = Math.max(0, totalBreakHours - POLICY_ALLOWED_BREAK_HOURS);
-  const wallHours = POLICY_WORK_PLUS_BREAK_HOURS + excessBreak;
-  const d = new Date(firstInstant.getTime() + wallHours * 3600 * 1000);
-  const hms = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-  return { hms, excessBreak };
+const instantToHms = (d) =>
+  `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+/**
+ * Nominal “office start” from first log: before :30 → floor to :00;
+ * from :30 onward → start of next hour (Date rolls past midnight).
+ */
+const inferNominalOfficeStartInstant = (firstLogHms) => {
+  const d = parseTime(firstLogHms);
+  const minuteFrac = d.getMinutes() + d.getSeconds() / 60;
+  if (minuteFrac < 30) {
+    d.setMinutes(0, 0, 0);
+  } else {
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+  }
+  return d;
+};
+
+/**
+ * Leave time from nominal start + 9h, plus lateness after unused-break absorption
+ * and break beyond 1h (overage trimmed by early arrival: extra work before nominal
+ * start offsets break minutes past the 1h allowance toward checkout).
+ */
+const policyCheckoutFromScheduledStart = (
+  nominalStartInstant,
+  actualFirstLogInstant,
+  totalBreakHours,
+) => {
+  const latenessHoursRaw = Math.max(
+    0,
+    getTimeDifference(nominalStartInstant, actualFirstLogInstant),
+  );
+  const earlyCreditHours = Math.max(
+    0,
+    getTimeDifference(actualFirstLogInstant, nominalStartInstant),
+  );
+  const unusedBreakAllowance = Math.max(
+    0,
+    POLICY_ALLOWED_BREAK_HOURS - totalBreakHours,
+  );
+  const lateHoursOnLeave = Math.max(
+    0,
+    latenessHoursRaw - unusedBreakAllowance,
+  );
+  const excessBreakLogged = Math.max(
+    0,
+    totalBreakHours - POLICY_ALLOWED_BREAK_HOURS,
+  );
+  const excessBreak = Math.max(
+    0,
+    excessBreakLogged - earlyCreditHours,
+  );
+  const nominalEnd = new Date(
+    nominalStartInstant.getTime() +
+      POLICY_WORK_PLUS_BREAK_HOURS * 3600 * 1000,
+  );
+  const leave = new Date(
+    nominalEnd.getTime() +
+      lateHoursOnLeave * 3600 * 1000 +
+      excessBreak * 3600 * 1000,
+  );
+  const hms = instantToHms(leave);
+  const lateHoursAbsorbed = latenessHoursRaw - lateHoursOnLeave;
+  return {
+    hms,
+    excessBreak,
+    excessBreakLogged,
+    earlyCreditHours,
+    latenessHoursRaw,
+    lateHoursOnLeave,
+    unusedBreakAllowance,
+    lateHoursAbsorbed,
+  };
 };
 
 const toTimeInputValue = (hms) => {
@@ -290,6 +360,14 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [scheduledStart, setScheduledStart] = useState("");
 
+  /** Odd-length logs = last stamp is clock-in with no clock-out yet; refresh ~1/min for “now”. */
+  const [, setOpenSessionTick] = useState(0);
+  useEffect(() => {
+    if (timeLogs.length % 2 !== 1) return undefined;
+    const id = window.setInterval(() => setOpenSessionTick((n) => n + 1), 60000);
+    return () => window.clearInterval(id);
+  }, [timeLogs]);
+
   const inputRef = useRef(null);
   const warningCacheRef = useRef(new Map());
   const warningHistoryRef = useRef({ info: [], warning: [], danger: [] });
@@ -315,10 +393,10 @@ function App() {
     setTimeLogs(newLogs);
   };
 
-  const resetAdvancedAndClose = () => {
-    setScheduledStart("");
-    setShowAdvanced(false);
-  };
+  // const resetAdvancedAndClose = () => {
+  //   setScheduledStart("");
+  //   setShowAdvanced(false);
+  // };
 
   const clearAllLogs = () => {
     setTimeLogs([]);
@@ -345,46 +423,193 @@ function App() {
         segments: [],
         breakWarnings: [],
         checkoutTimeStr: null,
-        checkoutDetail: null,
+        checkoutSummaryParagraphs: [],
+        checkoutMathRows: [],
+        hasOpenWorkSession: false,
       };
     }
 
-    const firstInstant = buildChronologicalTimes([timeLogs[0]])[0];
-
     const checkoutFromBreaks = (totalBreakHours, partialDay) => {
-      const { hms, excessBreak } = policyCheckoutFromFirstLog(
-        firstInstant,
+      const actualInstant = parseTime(timeLogs[0]);
+      const nominalInstant =
+        scheduledStart && timeRegex.test(scheduledStart)
+          ? parseTime(scheduledStart)
+          : inferNominalOfficeStartInstant(timeLogs[0]);
+      const r = policyCheckoutFromScheduledStart(
+        nominalInstant,
+        actualInstant,
         totalBreakHours,
       );
-      let checkoutDetail =
-        "From your first log: 9h on the clock (8h work + 1h break allowance).";
-      if (excessBreak > 0) {
-        checkoutDetail += ` Breaks in your logs are ${formatHours(totalBreakHours)} — ${formatHours(excessBreak)} beyond the 1h allowance is added to checkout.`;
+      const nominalHms = instantToHms(nominalInstant);
+      const manual =
+        Boolean(scheduledStart) && timeRegex.test(scheduledStart);
+      const nominalEndInstant = new Date(
+        nominalInstant.getTime() +
+          POLICY_WORK_PLUS_BREAK_HOURS * 3600 * 1000,
+      );
+      const baseLeaveClock = formatClockHm(instantToHms(nominalEndInstant));
+
+      const checkoutMathRows = [];
+      const nineShort = "9h (8 work + 1 break)";
+      checkoutMathRows.push({
+        label: "Base",
+        value: manual
+          ? `${formatClockHm(nominalHms)} + ${nineShort} = ${baseLeaveClock}`
+          : `${formatClockHm(timeLogs[0])} → ${formatClockHm(nominalHms)} + ${nineShort} = ${baseLeaveClock}`,
+      });
+
+      if (totalBreakHours > 0) {
+        if (r.excessBreakLogged > 0) {
+          const offset = Math.min(r.earlyCreditHours, r.excessBreakLogged);
+          let v = `${formatHours(totalBreakHours)} · ${formatHours(POLICY_ALLOWED_BREAK_HOURS)} free · +${formatHours(r.excessBreakLogged)} over`;
+          if (r.earlyCreditHours > 0)
+            v += ` · −${formatHours(offset)} early`;
+          v +=
+            r.excessBreak > 0
+              ? ` → +${formatHours(r.excessBreak)}`
+              : " → no add";
+          checkoutMathRows.push({ label: "Breaks", value: v });
+        } else {
+          checkoutMathRows.push({
+            label: "Breaks",
+            value: `${formatHours(totalBreakHours)} (≤1h, no add)`,
+          });
+        }
+      }
+
+      if (r.latenessHoursRaw > 0) {
+        let v = `+${formatHours(r.latenessHoursRaw)} vs start`;
+        if (r.lateHoursAbsorbed > 0)
+          v += ` · −${formatHours(r.lateHoursAbsorbed)} unused break`;
+        v +=
+          r.lateHoursOnLeave > 0
+            ? ` → +${formatHours(r.lateHoursOnLeave)}`
+            : " → no add";
+        checkoutMathRows.push({ label: "Late", value: v });
+      }
+
+      const addParts = [];
+      if (r.lateHoursOnLeave > 0)
+        addParts.push(`${formatHours(r.lateHoursOnLeave)} late`);
+      if (r.excessBreak > 0)
+        addParts.push(`${formatHours(r.excessBreak)} break`);
+      const finalFormula =
+        addParts.length > 0
+          ? `${baseLeaveClock} + ${addParts.join(" + ")} = ${formatClockHm(r.hms)}`
+          : `${baseLeaveClock} = ${formatClockHm(r.hms)}`;
+
+      checkoutMathRows.push({
+        label: "Checkout",
+        value: finalFormula,
+        emphasize: true,
+      });
+
+      const checkoutSummaryParagraphs = [];
+      if (manual) {
+        checkoutSummaryParagraphs.push(
+          `We use your office start (${formatClockHm(nominalHms)}). Each shift is 9 hours on the clock (8 hours of work plus 1 hour counted for breaks).`,
+        );
+      } else {
+        checkoutSummaryParagraphs.push(
+          `We treat ${formatClockHm(nominalHms)} as your shift start, rounded from your first clock-in at ${formatClockHm(timeLogs[0])} (the Base line on the right shows that jump).`,
+        );
+      }
+
+      if (totalBreakHours <= 0 && !partialDay) {
+        checkoutSummaryParagraphs.push(
+          "No breaks are logged yet, so checkout still uses the 9-hour shift window.",
+        );
       } else if (totalBreakHours > 0) {
-        checkoutDetail += ` Logged breaks: ${formatHours(totalBreakHours)} — within the 1h allowance.`;
+        if (r.excessBreakLogged <= 0) {
+          checkoutSummaryParagraphs.push(
+            `Your breaks add up to ${formatHours(totalBreakHours)}, which is within the one free hour, so breaks do not push checkout later.`,
+          );
+        } else if (r.earlyCreditHours > 0) {
+          const offset = Math.min(r.earlyCreditHours, r.excessBreakLogged);
+          if (r.excessBreak > 0) {
+            checkoutSummaryParagraphs.push(
+              `Your breaks total ${formatHours(totalBreakHours)}. After the free hour, ${formatHours(r.excessBreakLogged)} would normally add to checkout. Because you were ${formatHours(r.earlyCreditHours)} early, ${formatHours(offset)} of that is forgiven; ${formatHours(r.excessBreak)} still adds.`,
+            );
+          } else {
+            checkoutSummaryParagraphs.push(
+              `Your breaks total ${formatHours(totalBreakHours)}. After the free hour there is ${formatHours(r.excessBreakLogged)} of extra break, but your early arrival covers all of it for checkout, so nothing more is added for breaks.`,
+            );
+          }
+        } else {
+          checkoutSummaryParagraphs.push(
+            `Your breaks total ${formatHours(totalBreakHours)}. After the free hour, ${formatHours(r.excessBreak)} still adds to when you may leave.`,
+          );
+        }
       }
+
+      if (r.latenessHoursRaw > 0) {
+        if (r.lateHoursOnLeave > 0) {
+          if (r.lateHoursAbsorbed > 0) {
+            checkoutSummaryParagraphs.push(
+              `You were ${formatHours(r.latenessHoursRaw)} late. ${formatHours(r.lateHoursAbsorbed)} of that is covered by break time you did not use, so ${formatHours(r.lateHoursOnLeave)} still moves checkout later.`,
+            );
+          } else {
+            checkoutSummaryParagraphs.push(
+              `You were ${formatHours(r.latenessHoursRaw)} late to the shift start, so that full amount is added to checkout.`,
+            );
+          }
+        } else {
+          checkoutSummaryParagraphs.push(
+            `You were ${formatHours(r.latenessHoursRaw)} late, but that is fully covered by unused break time, so lateness does not add to checkout.`,
+          );
+        }
+      }
+
       if (partialDay) {
-        checkoutDetail +=
-          " Add more times to see working hours, breaks, and totals.";
+        checkoutSummaryParagraphs.push(
+          "Add more clock-in and clock-out times to see full work hours and break segments.",
+        );
       }
+
       return {
-        checkoutTimeStr: formatClockHm(hms),
-        checkoutDetail,
+        checkoutTimeStr: formatClockHm(r.hms),
+        checkoutSummaryParagraphs,
+        checkoutMathRows,
       };
     };
 
-    if (timeLogs.length < 2) {
+    const chronologicalTimes = buildChronologicalTimes(timeLogs);
+    const nowInstant = new Date();
+
+    /** Last log is clock-in only: work continues until now. */
+    const appendOpenWorkIfOdd = (totalWork, segs) => {
+      if (timeLogs.length % 2 !== 1) {
+        return { totalWork, segs, hasOpen: false };
+      }
+      const lastIdx = timeLogs.length - 1;
+      const startOpen = chronologicalTimes[lastIdx];
+      const endMs = Math.max(startOpen.getTime(), nowInstant.getTime());
+      const endDate = new Date(endMs);
+      const openH = getTimeDifference(startOpen, endDate);
+      segs.push({
+        start: timeLogs[lastIdx],
+        end: instantToHms(endDate),
+        hours: openH,
+        type: "work",
+        openEnded: true,
+      });
+      return { totalWork: totalWork + openH, segs, hasOpen: true };
+    };
+
+    if (timeLogs.length === 1) {
+      const { totalWork, segs, hasOpen } = appendOpenWorkIfOdd(0, []);
+      const breakWarnings = [];
       return {
-        totalHours: 0,
+        totalHours: totalWork,
         breakHours: 0,
-        totalWithBreaks: 0,
-        segments: [],
-        breakWarnings: [],
+        totalWithBreaks: totalWork,
+        segments: segs,
+        breakWarnings,
+        hasOpenWorkSession: hasOpen,
         ...checkoutFromBreaks(0, true),
       };
     }
 
-    const chronologicalTimes = buildChronologicalTimes(timeLogs);
     let totalWorkHours = 0;
     let totalBreakHours = 0;
     const segments = [];
@@ -414,6 +639,13 @@ function App() {
         });
       }
     }
+
+    const { totalWork: tw, segs: segsWithOpen, hasOpen } = appendOpenWorkIfOdd(
+      totalWorkHours,
+      segments,
+    );
+    totalWorkHours = tw;
+
     // Any non-zero total break: short (<60m), medium (60–90m), long (>90m)
     if (totalBreakHours > 0) {
       const warning = getBreakWarning(
@@ -427,17 +659,19 @@ function App() {
       warningCacheRef.current.delete("total-break");
     }
 
-    const { checkoutTimeStr, checkoutDetail } =
+    const { checkoutTimeStr, checkoutSummaryParagraphs, checkoutMathRows } =
       checkoutFromBreaks(totalBreakHours, false);
 
     return {
       totalHours: totalWorkHours,
       breakHours: totalBreakHours,
       totalWithBreaks: totalWorkHours + totalBreakHours,
-      segments,
+      segments: segsWithOpen,
       breakWarnings,
       checkoutTimeStr,
-      checkoutDetail,
+      checkoutSummaryParagraphs,
+      checkoutMathRows,
+      hasOpenWorkSession: hasOpen,
     };
   };
 
@@ -445,12 +679,6 @@ function App() {
 
   const advancedOutcome = useMemo(() => {
     if (!showAdvanced) return { error: null, result: null };
-    if (!scheduledStart || !timeRegex.test(scheduledStart)) {
-      return {
-        error: "Please select a valid office start time.",
-        result: null,
-      };
-    }
     if (timeLogs.length < 1) {
       return {
         error: "Add time logs first. The first entry is your arrival time.",
@@ -458,9 +686,15 @@ function App() {
       };
     }
     const actualArrivalStr = timeLogs[0];
-    const scheduled = parseTime(scheduledStart);
     const actual = parseTime(actualArrivalStr);
-    let lateHours = getTimeDifference(scheduled, actual);
+    const manualScheduled =
+      Boolean(scheduledStart) && timeRegex.test(scheduledStart);
+    const nominalStartInstant = manualScheduled
+      ? parseTime(scheduledStart)
+      : inferNominalOfficeStartInstant(actualArrivalStr);
+    const effectiveScheduledHms = instantToHms(nominalStartInstant);
+
+    let lateHours = getTimeDifference(nominalStartInstant, actual);
     const isLate = lateHours > 0;
     const isEarly = lateHours < 0;
     lateHours = Math.abs(lateHours);
@@ -468,25 +702,34 @@ function App() {
     const scheduledTotalHours = POLICY_WORK_PLUS_BREAK_HOURS;
 
     const { breakHours } = stats;
-    /** Break duration beyond the 1h allowance (logged). */
     const excessBreakHours = Math.max(
       0,
       breakHours - POLICY_ALLOWED_BREAK_HOURS,
     );
-    /** Minutes you arrived early can cancel break-over-1h, minute-for-minute. */
     const earlyCreditHours = isEarly ? lateHours : 0;
     const effectiveExcessBreakHours = Math.max(
       0,
       excessBreakHours - earlyCreditHours,
     );
 
+    const unusedBreakAllowanceHours = Math.max(
+      0,
+      POLICY_ALLOWED_BREAK_HOURS - breakHours,
+    );
+    const lateHoursOnLeave = isLate
+      ? Math.max(0, lateHours - unusedBreakAllowanceHours)
+      : 0;
+    const lateHoursAbsorbedIntoBreakAllowance = isLate
+      ? lateHours - lateHoursOnLeave
+      : 0;
+
     const nominalShiftEnd = new Date(
-      scheduled.getTime() +
+      nominalStartInstant.getTime() +
         POLICY_WORK_PLUS_BREAK_HOURS * 3600 * 1000,
     );
     const nominalShiftEndHms = `${String(nominalShiftEnd.getHours()).padStart(2, "0")}:${String(nominalShiftEnd.getMinutes()).padStart(2, "0")}:${String(nominalShiftEnd.getSeconds()).padStart(2, "0")}`;
 
-    const missedMs = isLate ? lateHours * 60 * 60 * 1000 : 0;
+    const missedMs = isLate ? lateHoursOnLeave * 60 * 60 * 1000 : 0;
     const excessBreakMs = effectiveExcessBreakHours * 60 * 60 * 1000;
     const leave = new Date(
       nominalShiftEnd.getTime() + missedMs + excessBreakMs,
@@ -496,11 +739,15 @@ function App() {
     return {
       error: null,
       result: {
-        scheduledStart,
+        scheduledStart: effectiveScheduledHms,
+        scheduledIsInferred: !manualScheduled,
         actualArrival: actualArrivalStr,
         isLate,
         isEarly,
         lateHours,
+        lateHoursOnLeave,
+        lateHoursAbsorbedIntoBreakAllowance,
+        unusedBreakAllowanceHours,
         breakHours,
         excessBreakHours,
         effectiveExcessBreakHours,
@@ -544,7 +791,9 @@ function App() {
 
   const adv = advancedOutcome.result;
   const advStripTeal = Boolean(
-    adv && !adv.isLate && adv.effectiveExcessBreakHours <= 0,
+    adv &&
+      adv.effectiveExcessBreakHours <= 0 &&
+      (!adv.isLate || adv.lateHoursOnLeave <= 0),
   );
 
   const handleKeyPress = (e) => {
@@ -780,7 +1029,7 @@ function App() {
 
         {/* ── ADVANCED LATE ARRIVAL SECTION ── */}
         <div style={{ marginBottom: "24px" }}>
-          <button
+          {/* <button
             type="button"
             onClick={() => {
               if (showAdvanced) resetAdvancedAndClose();
@@ -814,7 +1063,7 @@ function App() {
             >
               ⌄
             </span>
-          </button>
+          </button> */}
 
           {showAdvanced && (
             <div
@@ -846,10 +1095,13 @@ function App() {
                     flex: "1 1 240px",
                   }}
                 >
-                  Enter your <strong>office start</strong>. Checkout is office
-                  start + 9 hours (8h work + 1h break), adjusted if you were late
-                  or took more than 1h break. Lateness and totals update below
-                  while this section is open.
+                  <strong>Nominal start</strong> is inferred from your first log:
+                  before <strong>:30</strong> rounds to that hour at{" "}
+                  <strong>:00</strong>; from <strong>:30</strong> it becomes the{" "}
+                  <strong>next hour :00</strong>. That nominal time + 9h is your
+                  baseline leave; lateness vs it and breaks over 1h can move
+                  checkout. Optionally override nominal start with the field
+                  below.
                 </p>
               </div>
 
@@ -865,13 +1117,12 @@ function App() {
                     letterSpacing: "0.8px",
                   }}
                 >
-                  📅 Office Start Time{" "}
-                  <span style={{ color: "#e74c3c" }}>*</span>
+                  📅 Override nominal start (optional)
                 </label>
                 <ScheduleTimeSelects
                   value={scheduledStart}
                   onChange={setScheduledStart}
-                  optional={false}
+                  optional
                   showClearWhenFilled
                 />
                 <p
@@ -881,8 +1132,8 @@ function App() {
                     color: "#a8a29e",
                   }}
                 >
-                  Checkout = this time + 9h (8h work + 1h break), plus any break
-                  beyond 1h or time you arrived late.
+                  Leave empty to use the half-hour rule on your first log. Same
+                  logic drives the teal Checkout time card.
                 </p>
               </div>
 
@@ -907,11 +1158,12 @@ function App() {
                     lineHeight: "1.6",
                   }}
                 >
-                  <strong>How it works:</strong> Your <em>first log entry</em>{" "}
-                  is your actual arrival. We compare it to office start for
-                  lateness. Nominal checkout is office start + 9h; lateness and
-                  breaks over 1h move that time later. Break totals come from
-                  your logs.
+                  <strong>How it works:</strong> Your <em>first log</em> is actual
+                  arrival. Nominal start is that time rounded (:00–:29 → hour,
+                  :30+ → next hour) unless you override above. We compare arrival
+                  to nominal start for early/late. Checkout is nominal + 9h;
+                  lateness first uses unused break allowance (1h minus logged
+                  breaks), then adds to leave; breaks over 1h add too.
                 </div>
               </div>
 
@@ -969,9 +1221,10 @@ function App() {
                             : "You arrived exactly on time! 🎯"}
                       </div>
                       <div style={{ fontSize: "15px", color: "#78716c" }}>
-                        Scheduled:{" "}
-                        <strong>{formatClockHm(adv.scheduledStart)}</strong> →
-                        Actual arrival:{" "}
+                        Nominal start
+                        {adv.scheduledIsInferred ? " (inferred)" : " (override)"}
+                        : <strong>{formatClockHm(adv.scheduledStart)}</strong> →
+                        Actual:{" "}
                         <strong>{formatClockHm(adv.actualArrival)}</strong>
                       </div>
                       <div
@@ -1115,7 +1368,7 @@ function App() {
                 borderRadius: "18px",
                 padding: "22px 28px",
                 display: "flex",
-                alignItems: "center",
+                alignItems: "stretch",
                 gap: "20px",
                 flexWrap: "wrap",
               }}
@@ -1131,11 +1384,12 @@ function App() {
                   justifyContent: "center",
                   fontSize: "28px",
                   flexShrink: 0,
+                  alignSelf: "flex-start",
                 }}
               >
                 🚪
               </div>
-              <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+              <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                 <div
                   style={{
                     fontSize: "13px",
@@ -1158,39 +1412,99 @@ function App() {
                 >
                   {stats.checkoutTimeStr}
                 </div>
-                {stats.checkoutDetail && (
+                {stats.checkoutSummaryParagraphs?.length > 0 && (
                   <div
                     style={{
-                      fontSize: "13px",
-                      color: "#a8a29e",
-                      marginTop: "8px",
-                      lineHeight: 1.55,
+                      fontSize: "14px",
+                      color: "#57534e",
+                      marginTop: "12px",
+                      lineHeight: 1.6,
                     }}
                   >
-                    {stats.checkoutDetail}
+                    {stats.checkoutSummaryParagraphs.map((p, i) => (
+                      <p
+                        key={i}
+                        style={{
+                          margin: i === 0 ? 0 : "10px 0 0 0",
+                        }}
+                      >
+                        {p}
+                      </p>
+                    ))}
                   </div>
                 )}
               </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#78716c",
-                  textAlign: "right",
-                  lineHeight: 1.65,
-                  flexShrink: 0,
-                  marginLeft: "auto",
-                }}
-              >
-                Policy
-                <br />
-                <strong style={{ color: "#115e59", fontSize: "14px" }}>
-                  8h work + 1h break
-                </strong>
-                <br />
-                <span style={{ color: "#a8a29e", fontSize: "12px" }}>
-                  + extra when breaks exceed 1h
-                </span>
-              </div>
+              {stats.checkoutMathRows?.length > 0 && (
+                <div
+                  style={{
+                    flex: "1 1 260px",
+                    minWidth: "min(100%, 260px)",
+                    maxWidth: "100%",
+                    marginLeft: "auto",
+                    alignSelf: "stretch",
+                    backgroundColor: "#f5f5f4",
+                    borderRadius: "14px",
+                    padding: "12px 14px",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: "#78716c",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.6px",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    Calculation
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}
+                  >
+                    {stats.checkoutMathRows.map((row, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "1px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "#78716c",
+                            lineHeight: 1.3,
+                            fontWeight: "600",
+                            letterSpacing: "0.02em",
+                          }}
+                        >
+                          {row.label}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: row.emphasize ? "13px" : "12px",
+                            fontWeight: row.emphasize ? "700" : "500",
+                            color: row.emphasize ? "#115e59" : "#1c1917",
+                            fontFamily: "monospace",
+                            lineHeight: 1.4,
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          {row.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1237,7 +1551,8 @@ function App() {
                       marginBottom: "4px",
                     }}
                   >
-                    {!adv.isLate && adv.effectiveExcessBreakHours <= 0
+                    {adv.effectiveExcessBreakHours <= 0 &&
+                    (!adv.isLate || adv.lateHoursOnLeave <= 0)
                       ? "Expected checkout"
                       : "Suggested Leave Time to Compensate"}
                   </div>
@@ -1259,25 +1574,43 @@ function App() {
                       lineHeight: 1.5,
                     }}
                   >
-                    {!adv.isLate && adv.effectiveExcessBreakHours <= 0 && (
-                      <span style={{ color: "#57534e" }}>
-                        {getExpectedCheckoutExplanation(adv)}
-                      </span>
-                    )}
+                    {adv.effectiveExcessBreakHours <= 0 &&
+                      (!adv.isLate || adv.lateHoursOnLeave <= 0) && (
+                        <span style={{ color: "#57534e" }}>
+                          {adv.isLate
+                            ? `You can leave at ${formatClockHm(adv.nominalShiftEndHms)} (nominal + 9h). You were ${formatHoursWithSeconds(adv.lateHours)} late vs nominal start; ${formatHoursWithSeconds(adv.lateHoursAbsorbedIntoBreakAllowance)} of that is absorbed by unused break allowance (${formatHoursWithSeconds(adv.unusedBreakAllowanceHours)} of the 1h not yet in your logs). No extra stay from lateness.`
+                            : getExpectedCheckoutExplanation(adv)}
+                        </span>
+                      )}
                     {adv.isLate && adv.effectiveExcessBreakHours > 0 && (
                       <>
-                        Stay until this time to cover the{" "}
-                        {formatHoursWithSeconds(adv.lateHours)} you missed and{" "}
-                        {formatHoursWithSeconds(adv.effectiveExcessBreakHours)}{" "}
-                        break beyond your 1h allowance.
+                        Stay until this time to cover
+                        {adv.lateHoursOnLeave > 0 && (
+                          <>
+                            {" "}
+                            the {formatHoursWithSeconds(adv.lateHoursOnLeave)} you
+                            missed that adds to leave
+                            {adv.effectiveExcessBreakHours > 0 ? " and " : "."}
+                          </>
+                        )}
+                        {adv.effectiveExcessBreakHours > 0 && (
+                          <>
+                            {formatHoursWithSeconds(adv.effectiveExcessBreakHours)}{" "}
+                            break beyond your 1h allowance.
+                          </>
+                        )}
                       </>
                     )}
-                    {adv.isLate && adv.effectiveExcessBreakHours <= 0 && (
-                      <>
-                        Stay until this time to cover the{" "}
-                        {formatHoursWithSeconds(adv.lateHours)} you missed.
-                      </>
-                    )}
+                    {adv.isLate &&
+                      adv.effectiveExcessBreakHours <= 0 &&
+                      adv.lateHoursOnLeave > 0 && (
+                        <>
+                          Stay until this time to cover the{" "}
+                          {formatHoursWithSeconds(adv.lateHoursOnLeave)} you
+                          missed (adds to leave after break allowance is used in
+                          logs).
+                        </>
+                      )}
                     {!adv.isLate && adv.effectiveExcessBreakHours > 0 && (
                       <>
                         Stay until this time to cover{" "}
@@ -1315,8 +1648,30 @@ function App() {
                   <br />
                   {adv.isLate && (
                     <span style={{ color: "#a8a29e" }}>
-                      + {formatHoursWithSeconds(adv.lateHours)} late
+                      + {formatHoursWithSeconds(adv.lateHours)} late (vs nominal)
                     </span>
+                  )}
+                  {adv.isLate && adv.lateHoursAbsorbedIntoBreakAllowance > 0 && (
+                    <>
+                      <br />
+                      <span style={{ color: "#0f766e" }}>
+                        −{" "}
+                        {formatHoursWithSeconds(
+                          adv.lateHoursAbsorbedIntoBreakAllowance,
+                        )}{" "}
+                        absorbed (unused break allowance)
+                      </span>
+                    </>
+                  )}
+                  {adv.isLate && adv.lateHoursOnLeave > 0 && (
+                    <>
+                      <br />
+                      <span style={{ color: "#57534e", fontWeight: "600" }}>
+                        → +{" "}
+                        {formatHoursWithSeconds(adv.lateHoursOnLeave)} on leave
+                        from lateness
+                      </span>
+                    </>
                   )}
                   {adv.isLate && adv.effectiveExcessBreakHours > 0 && <br />}
                   {adv.excessBreakHours > 0 && (
@@ -1605,8 +1960,10 @@ function App() {
                     {stats.segments.filter((s) => s.type === "work").length ===
                     1
                       ? "session"
-                      : "sessions"}{" "}
-                    completed
+                      : "sessions"}
+                    {stats.hasOpenWorkSession
+                      ? " — last clock-out omitted; end time is now (updates ~each minute)."
+                      : " completed"}
                   </p>
                 </div>
               </div>
@@ -1706,6 +2063,18 @@ function App() {
                           }}
                         >
                           {formatClockHm(segment.end)}
+                          {segment.openEnded && (
+                            <span
+                              style={{
+                                marginLeft: "8px",
+                                fontSize: "11px",
+                                fontWeight: "700",
+                                color: "#0f766e",
+                              }}
+                            >
+                              now
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
